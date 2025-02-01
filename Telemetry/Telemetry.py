@@ -119,13 +119,7 @@ Bernardo Dominguez developed this module for his professional supervised practic
         self.urlsByReply = {}
 
         # Load logging events from csv file
-        try:
-            with open(self.csv_file_path, 'r') as csvfile:
-                reader = csv.DictReader(csvfile)
-                for row in reader:
-                    self.loggedEvents.append(row)
-        except Exception as e:
-            print(f"Error loading events from CSV file: {e}")
+        self.loggedEvents = TelemetryLogic.readLoggedEventsFromFile(self.csv_file_path)
 
         slicer.app.connect("startupCompleted()", self.onStartupCompleted)
         
@@ -420,8 +414,7 @@ Bernardo Dominguez developed this module for his professional supervised practic
                         if response.status_code == 200:
                             print("Logged events sent to server")
                             self.loggedEvents.clear()
-                            with open(self.csv_file_path, 'w') as csvfile:
-                                csvfile.truncate()
+                            TelemetryLogic.clearLoggedEventsFile(self.csv_file_path)
                             with open(self.file_path, 'w') as file:
                                 current_date = datetime.now().isoformat()
                                 file.write(current_date)
@@ -444,8 +437,7 @@ Bernardo Dominguez developed this module for his professional supervised practic
             print("Logged events sent to server")
             settings = qt.QSettings()
             settings.setValue("lastSent", datetime.now().isoformat())
-            with open(self.csv_file_path, 'w') as csvfile:
-                csvfile.truncate()
+            TelemetryLogic.clearLoggedEventsFile(self.csv_file_path)
         else:
             print(f"Error sending logged events to server: {reply.errorString()}")
         reply.deleteLater()
@@ -609,6 +601,21 @@ class TelemetryLogic(ScriptedLoadableModuleLogic):
     def __init__(self) -> None:
         """Called when the logic class is instantiated. Can be used for initializing member variables."""
         ScriptedLoadableModuleLogic.__init__(self)
+
+    @staticmethod
+    def readLoggedEventsFromFile(csv_file_path):
+        try:
+            with open(csv_file_path, "r") as csvfile:
+                reader = csv.DictReader(csvfile)
+                return [row for row in reader]
+        except Exception as e:
+            print(f"Error loading events from CSV file: {e}")
+            return []
+
+    @staticmethod
+    def clearLoggedEventsFile(csv_file_path):
+        with open(csv_file_path, 'w') as csvfile:
+            csvfile.truncate()
 
     def logAnEvent(self):
         # Log this event
