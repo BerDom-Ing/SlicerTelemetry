@@ -49,19 +49,8 @@ def onUsageEventLogged(component, event):
 
     # Read existing data from the CSV file
     csv_file_path = 'telemetry_events.csv'
-    event_counts = {}
-    try:
-        with open(csv_file_path, 'r', newline='') as csvfile:
-            reader = csv.DictReader(csvfile)
-            for row in reader:
-                key = (row['component'], row['event'], row['day'])
-                event_counts[key] = int(row['times'])
-    except FileNotFoundError:
-        # File does not exist yet, so we start with an empty dictionary
-        pass
-    except Exception as e:
-        print(f"Error reading CSV file: {e}")
-        return
+    logged_events = TelemetryLogic.readLoggedEventsFromFile(csv_file_path)
+    event_counts = {(row["component"], row["event"], row["day"]): int(row["times"]) for row in logged_events}
 
     # Update the count for the current event
     key = (component, event, event_day)
