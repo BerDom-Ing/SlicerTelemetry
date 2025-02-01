@@ -45,11 +45,6 @@ def onUsageEventLogged(component, event):
 
     # Get the current date without hours and seconds
     event_day = datetime.now().strftime('%Y-%m-%d')
-    event_info = {
-        'component': component,
-        'event': event,
-        'day': event_day
-    }
     print(f"Logged event: {component} - {event} on {event_day}")
 
     # Read existing data from the CSV file
