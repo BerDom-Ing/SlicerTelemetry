@@ -1,24 +1,19 @@
-import logging
-import os
-from typing import Annotated, Optional
-import json
 from datetime import datetime
+import csv
+import json
+
 import requests
-import vtk
 import qt
 import slicer
-import csv
 from slicer import qSlicerWebWidget 
 from slicer.i18n import tr as _
 from slicer.i18n import translate
-from slicer.ScriptedLoadableModule import *
-from slicer.util import VTKObservationMixin
-from slicer.parameterNodeWrapper import (
-    parameterNodeWrapper,
-    WithinRange,
+from slicer.ScriptedLoadableModule import (
+    ScriptedLoadableModule,
+    ScriptedLoadableModuleLogic,
+    ScriptedLoadableModuleTest,
+    ScriptedLoadableModuleWidget,
 )
-
-from slicer import vtkMRMLScalarVolumeNode
 
 
 #
@@ -109,6 +104,7 @@ def onUsageEventLogged(component, event):
 if hasattr(slicer.app, 'usageEventLogged') and slicer.app.isUsageLoggingSupported:
     slicer.app.usageEventLogged.connect(onUsageEventLogged)
 
+
 class Telemetry(ScriptedLoadableModule):
     """Uses ScriptedLoadableModule base class, available at:
     https://github.com/Slicer/Slicer/blob/main/Base/Python/slicer/ScriptedLoadableModule.py
@@ -135,9 +131,8 @@ Bernardo Dominguez developed this module for his professional supervised practic
         self.webWidget = None
         self.loggedEvents = []
         self.urlsByReply = {}
-        
 
-        #load logging events from csv file
+        # Load logging events from csv file
         try:
             with open(self.csv_file_path, 'r') as csvfile:
                 reader = csv.DictReader(csvfile)
@@ -158,7 +153,6 @@ Bernardo Dominguez developed this module for his professional supervised practic
             self._haveQT = False
     
         slicer.app.extensionsManagerModel().extensionInstalled.connect(self.onExtensionInstalled)
-
 
     def onStartupCompleted(self):
         qt.QTimer.singleShot(4000, self.showTelemetryPermissionPopup)
@@ -196,8 +190,6 @@ Bernardo Dominguez developed this module for his professional supervised practic
         if extensionName not in defaultExtensions:
             defaultExtensions.append(extensionName)
             settings.setValue("defaultExtensions", defaultExtensions)
-        
-
 
     def showPopup(self):
         if self.shouldShowPopup():
@@ -414,7 +406,6 @@ Bernardo Dominguez developed this module for his professional supervised practic
 
     
     def weeklyUsageUpload(self):
-        import qt
         settings = qt.QSettings()
         lastSent = settings.value("lastSent")
         try:
@@ -476,36 +467,17 @@ Bernardo Dominguez developed this module for his professional supervised practic
         reply.deleteLater()
 
 
-
-#
-# TelemetryParameterNode
-#
-
-@parameterNodeWrapper
-class TelemetryParameterNode:
-    """
-    The parameters needed by module.
-
-    """
-
-
 #
 # TelemetryWidget
 #
 
 
-class TelemetryWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
-    """Uses ScriptedLoadableModuleWidget base class, available at:
-    https://github.com/Slicer/Slicer/blob/main/Base/Python/slicer/ScriptedLoadableModule.py
-    """
+class TelemetryWidget(ScriptedLoadableModuleWidget):
 
     def __init__(self, parent=None) -> None:
         """Called when the user opens the module the first time and the widget is initialized."""
         ScriptedLoadableModuleWidget.__init__(self, parent)
-        VTKObservationMixin.__init__(self)  # needed for parameter node observation
         self.logic = None
-        self._parameterNode = None
-        self._parameterNodeGuiTag = None
 
     def setup(self) -> None:
         """Called when the user opens the module the first time and the widget is initialized."""
@@ -527,10 +499,6 @@ class TelemetryWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.logic = TelemetryLogic()
 
         # Connections
-
-        # These connections ensure that we update parameter node when scene is closed
-        self.addObserver(slicer.mrmlScene, slicer.mrmlScene.StartCloseEvent, self.onSceneStartClose)
-        self.addObserver(slicer.mrmlScene, slicer.mrmlScene.EndCloseEvent, self.onSceneEndClose)
         
         self.extensionSelectionGroupBox = qt.QGroupBox("Select Extensions for Telemetry")
         self.extensionSelectionLayout = qt.QVBoxLayout()
@@ -606,9 +574,6 @@ class TelemetryWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Buttons
         self.ui.applyButton.connect("clicked(bool)", self.onApplyButton)
 
-        # Make sure parameter node is initialized (needed for module reload)
-        self.initializeParameterNode()
-
     def saveExtensionState(self, extension, index):
         settings = qt.QSettings()
         enabledExtensions = settings.value("enabledExtensions", [])
@@ -659,46 +624,15 @@ class TelemetryWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     def cleanup(self) -> None:
         """Called when the application closes and the module widget is destroyed."""
-        self.removeObservers()
+        pass
 
     def enter(self) -> None:
         """Called each time the user opens this module."""
-        # Make sure parameter node exists and observed
-        self.initializeParameterNode()
+        pass
 
     def exit(self) -> None:
         """Called each time the user opens a different module."""
-        # Do not react to parameter node changes (GUI will be updated when the user enters into the module)
-        if self._parameterNode:
-            self._parameterNode.disconnectGui(self._parameterNodeGuiTag)
-            self._parameterNodeGuiTag = None
-            self.removeObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self._checkCanApply)
-
-    def onSceneStartClose(self, caller, event) -> None:
-        """Called just before the scene is closed."""
-        # Parameter node will be reset, do not use it anymore
-        self.setParameterNode(None)
-
-    def onSceneEndClose(self, caller, event) -> None:
-        """Called just after the scene is closed."""
-        # If this module is shown while the scene is closed then recreate a new parameter node immediately
-        if self.parent.isEntered:
-            self.initializeParameterNode()
-
-    def initializeParameterNode(self) -> None:
-        """Ensure parameter node exists and observed."""
-        # Parameter node stores all user choices in parameter values, node selections, etc.
-        # so that when the scene is saved and reloaded, these settings are restored.
-
-        self.setParameterNode(self.logic.getParameterNode())
-
-
-    def setParameterNode(self, inputParameterNode: Optional[TelemetryParameterNode]) -> None:
-        """
-        Set and observe parameter node.
-        Observation is needed because when the parameter node is changed then the GUI must be updated immediately.
-        """
-
+        pass
 
     def onApplyButton(self) -> None:
         """Run when user clicks "Apply" button."""
@@ -716,24 +650,10 @@ class TelemetryWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
 
 class TelemetryLogic(ScriptedLoadableModuleLogic):
-    """This class should implement all the actual
-    computation done by your module.  The interface
-    should be such that other python code can import
-    this class and make use of the functionality without
-    requiring an instance of the Widget.
-    Uses ScriptedLoadableModuleLogic base class, available at:
-    https://github.com/Slicer/Slicer/blob/main/Base/Python/slicer/ScriptedLoadableModule.py
-    """
 
     def __init__(self) -> None:
         """Called when the logic class is instantiated. Can be used for initializing member variables."""
         ScriptedLoadableModuleLogic.__init__(self)
-
-
-    
-    def getParameterNode(self):
-        return TelemetryParameterNode(super().getParameterNode())
-
 
     def logAnEvent(self):
         # Log this event
@@ -747,11 +667,6 @@ class TelemetryLogic(ScriptedLoadableModuleLogic):
 
 
 class TelemetryTest(ScriptedLoadableModuleTest):
-    """
-    This is the test case for your scripted module.
-    Uses ScriptedLoadableModuleTest base class, available at:
-    https://github.com/Slicer/Slicer/blob/main/Base/Python/slicer/ScriptedLoadableModule.py
-    """
 
     def setUp(self):
         """Do whatever is needed to reset the state - typically a scene clear will be enough."""
@@ -773,3 +688,4 @@ class TelemetryTest(ScriptedLoadableModuleTest):
         module.  For example, if a developer removes a feature that you depend on,
         your test should break so they know that the feature is needed.
         """
+        pass
