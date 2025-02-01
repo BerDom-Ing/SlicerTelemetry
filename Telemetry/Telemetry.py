@@ -56,16 +56,13 @@ def onUsageEventLogged(component, event):
     key = (component, event, event_day)
     event_counts[key] = event_counts.get(key, 0) + 1
 
+    # Update logged events list
+    logged_events = [
+        {"component": component, "event": event, "day": day, "times": times}
+        for (component, event, day), times in event_counts.items()]
+
     # Save the updated counts back to the CSV file
-    try:
-        with open(csv_file_path, 'w', newline='') as csvfile:
-            fieldnames = ['component', 'event', 'day', 'times']
-            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-            writer.writeheader()
-            for (component, event, day), times in event_counts.items():
-                writer.writerow({'component': component, 'event': event, 'day': day, 'times': times})
-    except Exception as e:
-        print(f"Error saving event to CSV file: {e}")
+    TelemetryLogic.saveLoggedEventsToFile(csv_file_path, logged_events)
 
 # Connect to the usageEventLogged signal if usage logging is supported
 if hasattr(slicer.app, 'usageEventLogged') and slicer.app.isUsageLoggingSupported:
@@ -592,6 +589,19 @@ class TelemetryLogic(ScriptedLoadableModuleLogic):
         except Exception as e:
             print(f"Error loading events from CSV file: {e}")
             return []
+
+    @staticmethod
+    def saveLoggedEventsToFile(csv_file_path, logged_events):
+        try:
+            with open(csv_file_path, "w", newline='') as csvfile:
+                fieldnames = ["component", "event", "day", "times"]
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                writer.writeheader()
+                for event in logged_events:
+                    assert fieldnames == list(event.keys())
+                    writer.writerow(event)
+        except Exception as e:
+            print(f"Error saving events to CSV file: {e}")
 
     @staticmethod
     def clearLoggedEventsFile(csv_file_path):
