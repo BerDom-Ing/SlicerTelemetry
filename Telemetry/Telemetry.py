@@ -24,24 +24,10 @@ from slicer.ScriptedLoadableModule import (
 def onUsageEventLogged(component, event):
     # Load settings
     settings = qt.QSettings()
-    enabledExtensions = settings.value("enabledExtensions", [])
-    disabledExtensions = settings.value("disabledExtensions", [])
-    defaultExtensions = settings.value("defaultExtensions", [])
+    enabledExtensions = list(settings.value("enabledExtensions", []))
+    disabledExtensions = list(settings.value("disabledExtensions", []))
+    defaultExtensions = list(settings.value("defaultExtensions", []))
     telemetryDefaultPermission = settings.value("TelemetryDefaultPermission")
-    if isinstance(enabledExtensions, tuple):
-        enabledExtensions = list(enabledExtensions)
-    if isinstance(disabledExtensions, tuple):
-        disabledExtensions = list(disabledExtensions)
-    if isinstance(defaultExtensions, tuple):
-        defaultExtensions = list(defaultExtensions)
-
-    # Ensure the settings are lists
-    if enabledExtensions is None:
-        enabledExtensions = []
-    if disabledExtensions is None:
-        disabledExtensions = []
-    if defaultExtensions is None:
-        defaultExtensions = []
     
     # Check if the component should be logged
     if component in enabledExtensions:
@@ -183,9 +169,7 @@ Bernardo Dominguez developed this module for his professional supervised practic
         telemetryDefaultPermission = settings.value("TelemetryDefaultPermission")
         print(f"Telemetry default permission: {telemetryDefaultPermission}")
         
-        defaultExtensions = settings.value("defaultExtensions", [])
-        if isinstance(defaultExtensions, tuple):
-            defaultExtensions = list(defaultExtensions)
+        defaultExtensions = list(settings.value("defaultExtensions", []))
         
         if extensionName not in defaultExtensions:
             defaultExtensions.append(extensionName)
@@ -509,26 +493,12 @@ class TelemetryWidget(ScriptedLoadableModuleWidget):
         # Get the list of installed extensions
         self.extensions = slicer.app.extensionsManagerModel().installedExtensions
 
-        # Get the selected extensions from QSettings
+        # Get the selected extensions. Since `QSettings.value()` returns list as tuple,
+        # convert back to list.
         settings = qt.QSettings()
-        enabledExtensions = settings.value("enabledExtensions", [])
-        disabledExtensions = settings.value("disabledExtensions", [])
-        defaultExtensions = settings.value("defaultExtensions", [])
-
-        # Ensure the settings are lists
-        if enabledExtensions is None:
-            enabledExtensions = []
-        if disabledExtensions is None:
-            disabledExtensions = []
-        if defaultExtensions is None:
-            defaultExtensions = []
-
-        if isinstance(enabledExtensions, tuple):
-            enabledExtensions = list(enabledExtensions)
-        if isinstance(disabledExtensions, tuple):
-            disabledExtensions = list(disabledExtensions)
-        if isinstance(defaultExtensions, tuple):
-            defaultExtensions = list(defaultExtensions)
+        enabledExtensions = list(settings.value("enabledExtensions", []))
+        disabledExtensions = list(settings.value("disabledExtensions", []))
+        defaultExtensions = list(settings.value("defaultExtensions", []))
 
         for extension in self.extensions:
             layout = qt.QHBoxLayout()
@@ -576,24 +546,9 @@ class TelemetryWidget(ScriptedLoadableModuleWidget):
 
     def saveExtensionState(self, extension, index):
         settings = qt.QSettings()
-        enabledExtensions = settings.value("enabledExtensions", [])
-        disabledExtensions = settings.value("disabledExtensions", [])
-        defaultExtensions = settings.value("defaultExtensions", [])
-
-        # Ensure the settings are lists
-        if enabledExtensions is None:
-            enabledExtensions = []
-        if disabledExtensions is None:
-            disabledExtensions = []
-        if defaultExtensions is None:
-            defaultExtensions = []
-
-        if isinstance(enabledExtensions, tuple):
-            enabledExtensions = list(enabledExtensions)
-        if isinstance(disabledExtensions, tuple):
-            disabledExtensions = list(disabledExtensions)
-        if isinstance(defaultExtensions, tuple):
-            defaultExtensions = list(defaultExtensions)
+        enabledExtensions = list(settings.value("enabledExtensions", []))
+        disabledExtensions = list(settings.value("disabledExtensions", []))
+        defaultExtensions = list(settings.value("defaultExtensions", []))
 
         if index == 1:
             if extension not in enabledExtensions:
