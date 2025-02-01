@@ -65,10 +65,7 @@ def onUsageEventLogged(component, event):
 
     # Update the count for the current event
     key = (component, event, event_day)
-    if key in event_counts:
-        event_counts[key] += 1
-    else:
-        event_counts[key] = 1
+    event_counts[key] = event_counts.get(key, 0) + 1
 
     # Save the updated counts back to the CSV file
     try:
