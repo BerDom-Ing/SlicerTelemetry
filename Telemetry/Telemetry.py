@@ -26,26 +26,7 @@ def onUsageEventLogged(component, event):
         print(f"Component {component} is not in the enabled or default extensions with permission. Event not logged.")
         return
 
-    # Get the current date without hours and seconds
-    event_day = datetime.now().strftime('%Y-%m-%d')
-    print(f"Logged event: {component} - {event} on {event_day}")
-
-    # Read existing data from the CSV file
-    csv_file_path = 'telemetry_events.csv'
-    logged_events = TelemetryLogic.readLoggedEventsFromFile(csv_file_path)
-    event_counts = {(row["component"], row["event"], row["day"]): int(row["times"]) for row in logged_events}
-
-    # Update the count for the current event
-    key = (component, event, event_day)
-    event_counts[key] = event_counts.get(key, 0) + 1
-
-    # Update logged events list
-    logged_events = [
-        {"component": component, "event": event, "day": day, "times": times}
-        for (component, event, day), times in event_counts.items()]
-
-    # Save the updated counts back to the CSV file
-    TelemetryLogic.saveLoggedEventsToFile(csv_file_path, logged_events)
+    TelemetryLogic.logUsageEvent(component, event)
 
 # Connect to the usageEventLogged signal if usage logging is supported
 if hasattr(slicer.app, 'usageEventLogged') and slicer.app.isUsageLoggingSupported:
@@ -613,6 +594,33 @@ class TelemetryLogic(ScriptedLoadableModuleLogic):
             should_log = False
 
         return should_log
+
+    @staticmethod
+    def logUsageEvent(component, event):
+        if not TelemetryLogic.shouldLogUsageEvent(component):
+            print(f"Component {component} is not in the enabled or default extensions with permission. Event not logged.")
+            return
+
+        # Get the current date without hours and seconds
+        event_day = datetime.now().strftime('%Y-%m-%d')
+        print(f"Logged event: {component} - {event} on {event_day}")
+
+        # Read existing data from the CSV file
+        csv_file_path = 'telemetry_events.csv'
+        logged_events = TelemetryLogic.readLoggedEventsFromFile(csv_file_path)
+        event_counts = {(row["component"], row["event"], row["day"]): int(row["times"]) for row in logged_events}
+
+        # Update the count for the current event
+        key = (component, event, event_day)
+        event_counts[key] = event_counts.get(key, 0) + 1
+
+        # Update logged events list
+        logged_events = [
+            {"component": component, "event": event, "day": day, "times": times}
+            for (component, event, day), times in event_counts.items()]
+
+        # Save the updated counts back to the CSV file
+        TelemetryLogic.saveLoggedEventsToFile(csv_file_path, logged_events)
 
     def logAnEvent(self):
         # Log this event
