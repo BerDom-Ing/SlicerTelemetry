@@ -22,24 +22,7 @@ from slicer.ScriptedLoadableModule import (
 
 
 def onUsageEventLogged(component, event):
-    # Load settings
-    settings = qt.QSettings()
-    enabledExtensions = list(settings.value("enabledExtensions", []))
-    disabledExtensions = list(settings.value("disabledExtensions", []))
-    defaultExtensions = list(settings.value("defaultExtensions", []))
-    telemetryDefaultPermission = settings.value("TelemetryDefaultPermission")
-    
-    # Check if the component should be logged
-    if component in enabledExtensions:
-        should_log = True
-    elif component in disabledExtensions:
-        should_log = False
-    elif component in defaultExtensions:
-        should_log = telemetryDefaultPermission
-    else:
-        should_log = False
-
-    if not should_log:
+    if not TelemetryLogic.shouldLogUsageEvent(component):
         print(f"Component {component} is not in the enabled or default extensions with permission. Event not logged.")
         return
 
@@ -607,6 +590,29 @@ class TelemetryLogic(ScriptedLoadableModuleLogic):
     def clearLoggedEventsFile(csv_file_path):
         with open(csv_file_path, 'w') as csvfile:
             csvfile.truncate()
+
+    @staticmethod
+    def shouldLogUsageEvent(component):
+        # Load settings
+        settings = qt.QSettings()
+        enabledExtensions = list(settings.value("enabledExtensions", []))
+        disabledExtensions = list(settings.value("disabledExtensions", []))
+        defaultExtensions = list(settings.value("defaultExtensions", []))
+        telemetryDefaultPermission = settings.value("TelemetryDefaultPermission")
+
+        should_log = False
+
+        # Check if the component should be logged
+        if component in enabledExtensions:
+            should_log = True
+        elif component in disabledExtensions:
+            should_log = False
+        elif component in defaultExtensions:
+            should_log = telemetryDefaultPermission
+        else:
+            should_log = False
+
+        return should_log
 
     def logAnEvent(self):
         # Log this event
