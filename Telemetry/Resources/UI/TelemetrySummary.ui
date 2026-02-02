@@ -181,6 +181,26 @@
         </property>
        </widget>
       </item>
+    <item>
+     <widget class="QLabel" name="urlLabel">
+      <property name="text">
+       <string>Where to send the data?(preview server is the default)</string>
+      </property>
+      <property name="wordWrap">
+       <bool>true</bool>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QTextEdit" name="urlTextEdit">
+      <property name="plainText">
+       <string>https://ber-dom.sao.dom.my.id/telemetry</string>
+      </property>
+      <property name="maximumHeight">
+       <number>40</number>
+      </property>
+     </widget>
+    </item>
       <item>
        <widget class="QPushButton" name="sendDataButton">
         <property name="font">

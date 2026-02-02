@@ -147,6 +147,7 @@ class TelemetrySendDialog(qt.QDialog):
             return "never"
         return None
 
+
     def resourcePath(self, filename):
         moduleDir = os.path.dirname(os.path.realpath(__file__))
         return os.path.join(moduleDir, 'Resources', filename)
@@ -185,6 +186,24 @@ class TelemetryWidget(ScriptedLoadableModuleWidget):
             if hasattr(self.ui, 'sendDataButton'):
                 self.ui.sendDataButton.connect("clicked(bool)", self.showSendTelemetryDialog)
 
+            # Initialize and persist URL field in summary UI
+            try:
+                if hasattr(self.ui, 'urlTextEdit'):
+                    settings = qt.QSettings()
+                    stored_url = settings.value("TelemetrySendUrl", None)
+                    current_url = stored_url or TelemetryLogic().url
+                    self.ui.urlTextEdit.setPlainText(current_url)
+                    # Persist changes when user edits the field
+                    def on_url_changed():
+                        new_url = self.ui.urlTextEdit.toPlainText().strip()
+                        if new_url:
+                            settings.setValue("TelemetrySendUrl", new_url)
+                    # QTextEdit doesn't have textChanged for plainText; use textChanged signal
+                    if hasattr(self.ui.urlTextEdit, 'textChanged'):
+                        self.ui.urlTextEdit.textChanged.connect(on_url_changed)
+            except Exception as e:
+                print(f"Warning: failed to initialize URL field in summary UI: {e}")
+
             # Update the status display
             self.updateStatusDisplay()
             # Check if initial configuration is needed
@@ -198,6 +217,15 @@ class TelemetryWidget(ScriptedLoadableModuleWidget):
     def showSendTelemetryDialog(self):
         """Show the TelemetrySendDialog for sending telemetry data (always sends if accepted)."""
         try:
+            # Ensure latest URL from summary UI is persisted before sending
+            try:
+                if hasattr(self.ui, 'urlTextEdit'):
+                    settings = qt.QSettings()
+                    new_url = self.ui.urlTextEdit.toPlainText().strip()
+                    if new_url:
+                        settings.setValue("TelemetrySendUrl", new_url)
+            except Exception:
+                pass
             TelemetryWidget.handleTelemetryUpload(force=True)
         except Exception as e:
             print(f"Error showing TelemetrySendDialog: {e}")
@@ -772,8 +800,13 @@ class TelemetryLogic(ScriptedLoadableModuleLogic):
             self._haveQT = True
         except ModuleNotFoundError:
             self._haveQT = False
-
-        self.url = "https://ber-dom.sao.dom.my.id/telemetry"
+        # Initialize default/persisted destination URL
+        try:
+            settings = qt.QSettings()
+            stored_url = settings.value("TelemetrySendUrl", None)
+        except Exception:
+            stored_url = None
+        self.url = stored_url or "https://ber-dom.sao.dom.my.id/telemetry"
         self.headers = {"Content-Type": "application/json"}
         self.csv_file_path = 'telemetry_events.csv'
         self.urlsByReply = {}
@@ -842,7 +875,7 @@ class TelemetryLogic(ScriptedLoadableModuleLogic):
         else:
             print("Telemetry send dialog canceled.")
 
-    def _sendTelemetryData(self):
+    def _sendTelemetryData(self, url=None):
         """Actually send the telemetry data and update lastSent."""
         settings = qt.QSettings()
         loggedEvents = TelemetryLogic.readLoggedEventsFromFile(self.csv_file_path)
@@ -850,15 +883,17 @@ class TelemetryLogic(ScriptedLoadableModuleLogic):
         if not data_to_send:
             print("No logged events to send")
             return
+        # Choose destination URL
+        send_url = (url or self.url)
         try:
             if hasattr(self, '_haveQT') and self._haveQT:
-                request = qt.QNetworkRequest(qt.QUrl(self.url))
+                request = qt.QNetworkRequest(qt.QUrl(send_url))
                 request.setHeader(qt.QNetworkRequest.ContentTypeHeader, "application/json")
                 json_data = json.dumps(data_to_send)
                 response = self.networkAccessManager.post(request, json_data.encode('utf-8'))
-                self.urlsByReply[response] = self.url
+                self.urlsByReply[response] = send_url
             else:
-                response = requests.post(self.url, headers=self.headers, json=loggedEvents)
+                response = requests.post(send_url, headers=self.headers, json=loggedEvents)
                 if response.status_code == 200:
                     print("Logged events sent to server")
                     TelemetryLogic.clearLoggedEventsFile(self.csv_file_path)
